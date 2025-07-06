@@ -1,0 +1,57 @@
+# .github/workflows/sync-public.yml
+name: Sync to Public Repo
+
+on:
+  workflow_dispatch:  # Ejecutar manualmente
+  push:
+    tags:
+      - 'public-*'     # O cuando hagas un tag como 'public-v1.0'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout private repo
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        
+    - name: Clean sensitive files
+      run: |
+        # Eliminar archivos sensibles
+        rm -f .env
+        rm -f .DS_Store
+        rm -rf __pycache__/
+        find . -name "*.pyc" -delete
+        find . -name "*.pyo" -delete
+        find . -name "*.log" -delete
+        
+        # Crear .gitignore apropiado
+        cat > .gitignore << EOF
+        .env
+        .env.local
+        .DS_Store
+        __pycache__/
+        *.pyc
+        *.log
+        node_modules/
+        EOF
+        
+    - name: Push to public repo
+      env:
+        PUBLIC_REPO_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+      run: |
+        git config --global user.name 'GitHub Action'
+        git config --global user.email 'action@github.com'
+        
+        # Crear nuevo repo limpio
+        rm -rf .git
+        git init
+        git add .
+        git commit -m "Public release $(date)"
+        
+        # Push al repo público
+        git remote add public https://${PUBLIC_REPO_TOKEN}@github.com/AccioNegocios/accio-brain-public.git
+        git branch -M main
+        git push -f public main
